@@ -1,0 +1,5 @@
+{
+    "blank_page_threshold": 0.95,
+    "sift_threshold": 20,
+    "tesseract_url": "https://github.com/UB-Mannheim/tesseract/wiki"
+}

@@ -1,0 +1,10 @@
+__pycache__/
+other/
+split_pdf/
+發布版/
+
+extracted_data_factory.xlsx
+spssp_mc_combine.exe
+README.pptx
+
+*.7z
