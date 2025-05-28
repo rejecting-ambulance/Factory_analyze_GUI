@@ -15,10 +15,13 @@
 
 ## 軟體設定
 1.安裝Tesseract.exe
+* [下載點] (https://github.com/UB-Mannheim/tesseract/wiki)
+* 照步驟安裝，安裝時要記檔案路徑，如："C:/Program Files/Tesseract-OCR"
 * 要記錄安裝路徑，轉貼到config.json裡面。
 
 2.解壓縮Poppler.zip
-* 紀錄路徑，轉貼到config.json裡面。
+* [下載點] (https://github.com/oschwartz10612/poppler-windows/releases/)
+* 紀錄解壓縮的路徑，轉貼到config.json裡面。
 
 # 操作步驟
 1. 點選【工廠登記公文自動化處理系統.exe】
