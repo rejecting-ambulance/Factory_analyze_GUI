@@ -45,11 +45,11 @@
 
 
 # 注意事項
-1. footer_images內可以放入想比對的圖片，這是要比對文件結尾的內容。
+1. footer_images內可以放入想比對的圖片，這是要比對文件結尾的內容。  
 
 2.excleude_numbers.txt可以加入要排除的數字，因為有時候會把電話或是一些不需要的資訊讀進來。
 
-### Tell_me
+### Contact me
 zhandezhonghenry@gmail.com
 
 
