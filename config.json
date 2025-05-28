@@ -4,6 +4,6 @@
     "tesseract_path": "",
     "tesseract_path_example": "C:/Program Files/Tesseract-OCR",
     "tesseract_url": "https://github.com/UB-Mannheim/tesseract/wiki",
-    "poppler_path": "https://github.com/oschwartz10612/poppler-windows/releases/",
+    "poppler_url": "https://github.com/oschwartz10612/poppler-windows/releases/",
     "poppler_path_example": "poppler-0.68.0/bin"
 }
