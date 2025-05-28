@@ -2,10 +2,11 @@ from pdf2image import convert_from_path
 import fitz
 import pandas as pd
 import pytesseract
+import json
 import os
 import re
 from concurrent.futures import ProcessPoolExecutor
-
+import multiprocessing
 
 '''
     這段程式碼會讀取一個資料夾內所有的PDF
@@ -17,10 +18,12 @@ from concurrent.futures import ProcessPoolExecutor
     資料夾名稱、輸出表單名稱.xlsx
 
 '''
-# 定義函數：處理單個 PDF 文件並提取內容
 
-# 配置 Tesseract 的執行路徑
-#pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+def ensure_tesseract_path():
+    tesseract_path = os.environ.get('TESSERACT_PATH', '').strip()
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 # 圖像預處理（可選）
 def preprocess_image(image):
@@ -42,6 +45,7 @@ def pdf_to_text(pdf_path):
             text = pytesseract.image_to_string(images[i], lang="chi_tra")
         full_text += f"--- 第 {i + 1} 頁 ---\n{text}\n"
     return full_text
+
 
 # 定義函數：處理單個 PDF 文件並提取內容
 def extract_pdf_data(pdf_path, exclude_path="exclude_numbers.txt"):
@@ -78,11 +82,18 @@ def extract_pdf_data(pdf_path, exclude_path="exclude_numbers.txt"):
 
 def process_single_pdf(pdf_file):
     """處理單個 PDF 文件並返回提取的數據。"""
+    #ensure_tesseract_path()
     data = extract_pdf_data(pdf_file)
     data["檔名"] = os.path.basename(pdf_file)
     return data
 
 def process_folder_multiprocessing(folder_path, output_excel='extracted_data_factory.xlsx', max_processes=None):
+    ensure_tesseract_path()
+
+    cpu_count = multiprocessing.cpu_count()
+    if max_processes is None:
+        max_processes = max(1, cpu_count - 1)
+        
     if not os.path.exists(folder_path):
         raise FileNotFoundError(f"❌ 找不到指定資料夾：{folder_path}")
     
@@ -134,9 +145,13 @@ def process_folder(folder_path, output_excel = 'extracted_data_factory.xlsx'):
 # 正則匹配的發文字號和工廠編號
 DISPATCH_NUMBER_PATTERN = r"^\d{10}$"  # 發文字號：10 位數字
 FACTORY_NUMBER_PATTERN = r"^\d{8}$|^S\d{7}$"  # 工廠編號：8 位數字或 S 開頭 + 7 位數字    
-
+#print(pytesseract.pytesseract.tesseract_cmd)
 # 主程序：設置資料夾路徑與輸出 Excel 路徑
 if __name__ == "__main__":
+
+    tesseract_cmd = os.environ.get('TESSERACT_PATH')
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
     #folder_path = r"D:\users\user\Desktop\image_decode\split_pdf"  # 替換為存放 PDF 的資料夾路徑
     folder_path = "split_pdf"  # 替換為存放 PDF 的資料夾路徑

@@ -5,6 +5,7 @@ import os
 import sys
 import shutil
 import json
+import pytesseract
 import time
 import tkinter as tk
 from tkinter import messagebox
@@ -27,27 +28,42 @@ def select_pdf():
         print("選擇的 PDF:", file_path)
         return file_path    
 
+
 def load_config(config_path="config.json", default_config=None):
     if not os.path.exists(config_path):
         print(f"[錯誤] 找不到設定檔：{config_path}")
         if default_config:
             print("[提示] 使用預設設定。")
-            return default_config
+            config = default_config
         else:
             print("[中止] 無法繼續執行，請確認設定檔存在。")
             sys.exit(1)
+    else:
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"[錯誤] 設定檔格式錯誤：{e}")
+            if default_config:
+                print("[提示] 使用預設設定。")
+                config = default_config
+            else:
+                print("[中止] 請修正 config.json 後再執行。")
+                sys.exit(1)
 
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"[錯誤] 設定檔格式錯誤：{e}")
-        if default_config:
-            print("[提示] 使用預設設定。")
-            return default_config
+    # 處理 tesseract 路徑
+    tesseract_path = config.get("tesseract_path", "").strip()
+    if tesseract_path:
+        if os.path.exists(tesseract_path):
+            pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            os.environ['TESSERACT_PATH'] = pytesseract.pytesseract.tesseract_cmd
+            print(f"[設定] 使用指定的 Tesseract 路徑：{tesseract_path}")
         else:
-            print("[中止] 請修正 config.json 後再執行。")
-            sys.exit(1)
+            print(f"[警告] 指定的 Tesseract 路徑不存在：{tesseract_path}，將使用系統 PATH。")
+    else:
+        print("[設定] 未指定 Tesseract 路徑，將使用系統 PATH。")
+
+    return config
 
 def is_blank_page(page, threshold=0.95):
     """檢查單頁是否為空白"""
@@ -157,6 +173,10 @@ def compare_image_with_pdf_page(image_paths, pdf_path, page_num, threshold=10):
 def compare_image_with_pdf_pages_multiprocessing(image_paths, pdf_path, threshold=10, max_processes=None):
     """使用多核心比較多張圖片與 PDF 每一頁是否相似。"""
     print(str_line('2.比對檔案分割點'))
+    if max_processes is None:
+        max_processes = max(1, multiprocessing.cpu_count() - 1)
+
+
     results = {}
     doc = fitz.open(pdf_path)
 
@@ -248,11 +268,18 @@ def check_and_handle_split_folder(folder_path="split_pdf"):
         return 'y'
 
     print(f"⚠️ 偵測到資料夾 '{folder_path}' 有檔案，共 {len(contents)} 個項目。")
-    
-    root = tk.Tk()
-    root.withdraw()  # 不顯示主視窗
 
-    result = messagebox.askyesno("清空資料夾", f"偵測到 {folder_path} 資料夾內已有檔案。\n是否清空？")
+    # 啟動 Tkinter 並隱藏主視窗
+    root = tk.Tk()
+    root.withdraw()
+
+    result = messagebox.askyesno(
+        "清空資料夾",
+        f"偵測到資料夾 '{folder_path}' 內已有 {len(contents)} 個項目。\n\n是否要清空資料夾？\n\n"
+        "是：清空後自選PDF\n否：分析資料夾內容"
+    )
+
+    root.destroy()
 
     if result:
         for item in contents:
@@ -282,7 +309,7 @@ def print_intro(fancy=False):
     else:
         print("""
 ================ 工廠登記公文自動化處理系統 ================
-- 開啟 - 找印章 - 分割 - 找號碼 - 整理 - 查詢 - 下班(誤 - 
+- 開啟 - 找印章 - 分割 - 找號碼 - 整理 - 查詢 - 下班(真的嗎 - 
 - 讓我們喊一聲，噢 ~ 土豆ㄡ ~ ~ 
 ===========================================================
 """)
@@ -318,7 +345,7 @@ def show_manual_step(root, output_excel):
 def show_finish_window():
     finish_root = tk.Tk()
     finish_root.title("完成")
-    label = tk.Label(finish_root, text=str_line("Finish:) 請點擊按鈕結束程式"), font=('Arial', 12))
+    label = tk.Label(finish_root, text=str_line("有了耳朵，歡樂多更多！完成囉"), font=('Arial', 12))
     label.pack(padx=20, pady=20)
 
     btn_close = tk.Button(finish_root, text="結束程式", command=finish_root.destroy, width=20)
@@ -330,10 +357,12 @@ def show_finish_window():
 
 def main ():
     print_intro()
+    
 
     default_config = {
         "blank_page_threshold" : 0.95,
-        "sift_threshold" : 20
+        "sift_threshold" : 20,
+        "tesseract_path": ""
     }
 
     config = load_config(default_config=default_config)

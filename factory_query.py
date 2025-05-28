@@ -60,7 +60,7 @@ def process_excel_data(file_path, search_col = 1):
         if main_search_value == 'None':
             break
 
-        print(f'{row_count-1}：{main_search_value}')
+        print(f'第{row_count-1}筆-{main_search_value}')
 
         search_input = driver.find_element(By.NAME, 'regiID')
         search_input.clear()
