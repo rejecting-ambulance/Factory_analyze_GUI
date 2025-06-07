@@ -56,5 +56,5 @@
 2.excleude_numbers.txt可以加入要排除的數字，因為有時候會把電話或是一些不需要的資訊讀進來。
 
 ### 
-* Tools:ChatGPT 
-* Contact:zhandezhong861131@gmail.com
+* Tools: ChatGPT 
+* Contact: zhandezhong861131@gmail.com
