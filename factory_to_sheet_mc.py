@@ -34,20 +34,22 @@ def preprocess_image(image):
     return binary_image
 
 
-# 讀取 PDF 並進行 OCR
+# 讀取 PDF 或進行 OCR
 def pdf_to_text(pdf_path):
     doc = fitz.open(pdf_path)
     full_text = ""
+
+    settings = ' --oem 1 --psm 6'
+
     for i, page in enumerate(doc):
         text = page.get_text("text")
         if not text.strip():
             images = convert_from_path(pdf_path, dpi=300)
-            text = pytesseract.image_to_string(images[i], lang="chi_tra")
+            text = pytesseract.image_to_string(images[i], lang="chi_tra", config = settings)
         full_text += f"--- 第 {i + 1} 頁 ---\n{text}\n"
     return full_text
 
 
-# 定義函數：處理單個 PDF 文件並提取內容
 def extract_pdf_data(pdf_path, exclude_path="exclude_numbers.txt"):
     text = pdf_to_text(pdf_path)
 
@@ -58,27 +60,32 @@ def extract_pdf_data(pdf_path, exclude_path="exclude_numbers.txt"):
     except FileNotFoundError:
         exclude_set = set()
 
-    dispatch_number_pattern = r"\b(\d{10})\b"
-    factory_number_pattern = r"\b\d{8}\b|S\d{7}\b"
+    dispatch_number_pattern = r"(?<!\d)(\d{10})(?!\d)"
+    factory_number_pattern = r"(?<!\d)(\d{8})(?!\d)|(?<!\w)(S\d{7})(?!\d)"
 
+    # 擷取發文字號
     dispatch_number_match = re.search(dispatch_number_pattern, text)
     dispatch_number = f"府經工行字第{dispatch_number_match.group(1)}號" if dispatch_number_match else "未匹配"
 
-    factory_numbers = re.findall(factory_number_pattern, text)
+    # 擷取工廠編號：findall 會回傳 tuple
+    matches = re.findall(factory_number_pattern, text)
+    factory_numbers = [m1 if m1 else m2 for m1, m2 in matches]
 
-    # 排除出現在排除清單中的純8碼工廠編號
+    # 排除出現在排除清單的 8 碼數字
     filtered_factory_numbers = [
         num for num in factory_numbers
         if not (re.fullmatch(r"\d{8}", num) and num in exclude_set)
     ]
 
-    unique_factory_numbers = set(filtered_factory_numbers)
+    # 去重、排序並組成字串
+    unique_factory_numbers = sorted(set(filtered_factory_numbers))
     factory_numbers_result = ", ".join(unique_factory_numbers) if unique_factory_numbers else "無"
 
     return {
         "發文字號": dispatch_number,
         "工廠編號": factory_numbers_result,
     }
+
 
 def process_single_pdf(pdf_file):
     """處理單個 PDF 文件並返回提取的數據。"""
