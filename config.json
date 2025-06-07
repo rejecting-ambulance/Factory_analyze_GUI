@@ -1,14 +1,18 @@
 {
 
+    "背景軟體設定":"--------------------------------------",
     "tesseract_path": "C:/Program Files/Tesseract-OCR",
     "poppler_path": "poppler-24.08.0/Library/bin",
 
     "tesseract_source": "https://github.com/UB-Mannheim/tesseract/wiki",
     "poppler_source": "https://github.com/oschwartz10612/poppler-windows/releases/",
 
-
+    "辨識設定":"--------------------------------------",
+    "辨識說明1":"blank_page_threshold越高，接近純白才移除，範圍0~1",
+    "辨識說明2":"sift_threshold，接近純白才移除",
+    "辨識說明3":"blank_page_threshold越高，接近純白才移除",
     "blank_page_threshold": 0.95,
-    "sift_threshold": 20,
+    "sift_threshold": 10,
     "max_processes": 3,
     "clean_temp_pdf": "True",
     
