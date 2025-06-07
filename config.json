@@ -1,9 +1,34 @@
 {
+
+    "tesseract_path": "C:/Program Files/Tesseract-OCR",
+    "poppler_path": "poppler-24.08.0/Library/bin",
+
+    "tesseract_source": "https://github.com/UB-Mannheim/tesseract/wiki",
+    "poppler_source": "https://github.com/oschwartz10612/poppler-windows/releases/",
+
+
     "blank_page_threshold": 0.95,
     "sift_threshold": 20,
-    "tesseract_path": "",
-    "tesseract_path_example": "C:/Program Files/Tesseract-OCR",
-    "tesseract_url": "https://github.com/UB-Mannheim/tesseract/wiki",
-    "poppler_url": "https://github.com/oschwartz10612/poppler-windows/releases/",
-    "poppler_path_example": "poppler-0.68.0/bin"
+    "max_processes": 3,
+    "clean_temp_pdf": "True",
+    
+    "image_folder": "footer_images",
+    "process_folder": "split_pdf",
+
+    "cleaned_pdf": "remove_blank.pdf",
+    "output_excel": "factory_extraction.xlsx",
+    
+
+    "exclude_path": "exclude_numbers.txt",
+    
+    "document_number_pattern": "(?<!\\d)(\\d{10})(?!\\d)",
+    "factory_number_pattern": "(?<!\\d)(\\d{8})(?!\\d)|(?<!\\w)(S\\d{7})(?!\\d)",
+    
+    "dpi": 300,
+    "tesseract_lang": "chi_tra",
+    "tesseract_config": "--oem 1 --psm 6"
+
+      
+
+
 }

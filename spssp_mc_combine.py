@@ -59,9 +59,9 @@ def load_config(config_path="config.json", default_config=None):
             os.environ['TESSERACT_PATH'] = pytesseract.pytesseract.tesseract_cmd
             print(f"[設定] 使用指定的 Tesseract 路徑：{tesseract_path}")
         else:
-            print(f"[警告] 指定的 Tesseract 路徑不存在：{tesseract_path}，將使用系統 PATH。")
+            print(f"[錯誤] 指定的 Tesseract 路徑不存在：{tesseract_path}，將使用預設 PATH。")
     else:
-        print("[設定] 未指定 Tesseract 路徑，將使用系統 PATH。")
+        print("[設定] 未指定 Tesseract 路徑，將使用預設 PATH。")
 
     return config
 
@@ -79,7 +79,7 @@ def is_blank_page(page, threshold=0.95):
     return (white_pixels / total_pixels) >= threshold  # 若白色比例超過閾值，則視為空白
 
 
-def remove_blank_pages(pdf_path,threshold=0.95):
+def remove_blank_pages(pdf_path, config):
     """移除空白頁"""
     print(str_line('1.移除空白頁面'))
     doc = fitz.open(pdf_path)
@@ -89,24 +89,24 @@ def remove_blank_pages(pdf_path,threshold=0.95):
     total_pages = len(doc)  # 原始總頁數
 
     for page in doc:  
-        if is_blank_page(page, threshold = threshold):  
+        if is_blank_page(page, threshold = config["blank_page_threshold"]):  
             removed_pages.append(page.number + 1)  # PyMuPDF 頁碼從 0 開始，+1 轉為人類可讀的頁碼
         else:
             new_doc.insert_pdf(doc, from_page=page.number, to_page=page.number)
 
-    temp_path = 'remove_blank.pdf'
+    temp_path = config["cleaned_pdf"]
     new_doc.save(temp_path)
     new_doc.close()
     doc.close()
 
     # 顯示移除頁面資訊
     remaining_pages = total_pages - len(removed_pages)
-    print("移除的頁面:")
+    print("移除空白頁面:")
     for i in range(0, len(removed_pages), 5):
         print("  " + ", ".join(map(str, removed_pages[i:i+5])))
     print(f"剩餘頁數: {remaining_pages} / {total_pages}")
 
-    return temp_path
+
 
 
 def compare_images_sift(img1, img2, threshold=10):
@@ -170,13 +170,16 @@ def compare_image_with_pdf_page(image_paths, pdf_path, page_num, threshold=10):
         return page_num, similar_image_indices  # 返回頁碼和相似圖片索引
     return None
 
-def compare_image_with_pdf_pages_multiprocessing(image_paths, pdf_path, threshold=10, max_processes=None):
+def compare_image_with_pdf_pages_multiprocessing(image_paths, config):
     """使用多核心比較多張圖片與 PDF 每一頁是否相似。"""
     print(str_line('2.比對檔案分割點'))
+    max_processes = config["max_processes"]
     if max_processes is None:
         max_processes = max(1, multiprocessing.cpu_count() - 1)
 
+    threshold = config["sift_threshold"]
 
+    pdf_path = config["cleaned_pdf"]
     results = {}
     doc = fitz.open(pdf_path)
 
@@ -230,7 +233,7 @@ def split_pdf(pdf_path, split_points, output_dir="split_pdf"):
             new_doc.close()
 
     except Exception as e:
-        print(f"Error splitting PDF: {e}")
+        print(f"分割時遇到錯誤: {e}")
 
     finally:
         doc.close()  # 確保關閉 PDF 文件
@@ -259,7 +262,8 @@ def wait_for_file(path, timeout=10):
             raise TimeoutError(f"檔案產生超時: {path}")
         time.sleep(0.5)
 
-def check_and_handle_split_folder(folder_path="split_pdf"):
+def check_and_handle_split_folder(config):
+    folder_path = config['process_folder']
     if not os.path.exists(folder_path):
         return 'y'
 
@@ -275,7 +279,7 @@ def check_and_handle_split_folder(folder_path="split_pdf"):
 
     result = messagebox.askyesno(
         "清空資料夾",
-        f"偵測到資料夾 '{folder_path}' 內已有 {len(contents)} 個項目。\n\n是否要清空資料夾？\n\n"
+        f"偵測到資料夾 '{folder_path}' 內已有 {len(contents)} 個項目。\n\n是否要清空？\n\n"
         "是：清空後自選PDF\n否：分析資料夾內容"
     )
 
@@ -294,31 +298,19 @@ def check_and_handle_split_folder(folder_path="split_pdf"):
         print("✅ 保留原資料夾內容。")
         return 'n'
 
-def print_intro(fancy=False):
-    if fancy:
-        print("""
-╔════════════════════════════════════════════╗
-║     🏭 工廠登記公文自動化處理系統 🧠      ║
-╠════════════════════════════════════════════╣
-║ 📂 啟動資料夾掃描模組                      ║
-║ 🧾 辨識公文內容、定位市長印章中...          ║
-║ ✂️ 分割繁雜公文、整合關鍵資訊                ║
-║ 🧙‍♂️ 讓公文處理像魔法一樣輕鬆！             ║
-╚════════════════════════════════════════════╝
-""")
-    else:
-        print("""
-================ 工廠登記公文自動化處理系統 ================
-- 開啟 - 找印章 - 分割 - 找號碼 - 整理 - 查詢 - 下班(真的嗎 - 
-- 讓我們喊一聲，噢 ~ 土豆ㄡ ~ ~ 
-===========================================================
-""")
+def print_intro():
+    print("""
+    ================ 工廠登記公文自動化處理系統 ================
+    - 開啟 - 找印章 - 分割 - 找號碼 - 擷取 - 查詢 - 下班 - 
+    ===========================================================
+    """)
 
 
-def show_manual_step(root, output_excel):
+def show_manual_step(root, config):
+    output_excel = config['output_excel']
     def on_yes():
         root.destroy()  # 關閉目前提示視窗
-        print(str_line('6.查詢工廠編號'))
+        print(str_line('5.查詢工廠編號'))
         process_excel_data(output_excel, 4)
         show_finish_window()
 
@@ -362,25 +354,30 @@ def main ():
     default_config = {
         "blank_page_threshold" : 0.95,
         "sift_threshold" : 20,
-        "tesseract_path": ""
+        "tesseract_path": "",
+        "clean_pdf": "remove_blank.pdf",
+        "process_folder": "split_pdf",
+        "image_folder": "footer_images",
+        "output_excel": "factory_extraction.xlsx",
+        "max_processes": multiprocessing.cpu_count() - 1,
+        "clean_temp_pdf": "True"
     }
 
     config = load_config(default_config=default_config)
-    blank_page_threshold = config.get("blank_page_threshold", 0.95)
-    sift_threshold = config.get("sift_threshold", 20)
 
-    if_split = check_and_handle_split_folder(folder_path="split_pdf")
+    if_split = check_and_handle_split_folder(folder_path=config['process_folder'])
 
     if if_split == 'y':
         pdf_path = select_pdf()
-        image_folder = 'footer_images'  # 假設你的圖片都放在 templates 資料夾內
-        image_paths = get_images_from_folder(image_folder)
-    
-        #threshold = 20  # 設定相似度閾值
-        temp_path = remove_blank_pages(pdf_path, threshold = blank_page_threshold)
-        wait_for_file(temp_path)
 
-        results = compare_image_with_pdf_pages_multiprocessing(image_paths, temp_path, threshold = sift_threshold)  # 使用多核心版本
+        remove_blank_pages(pdf_path, config)
+        wait_for_file(config["cleaned_pdf"])
+        temp_path = config["cleaned_pdf"]
+
+        image_folder = config['image_folder']  # 假設你的圖片都放在 templates 資料夾內
+        image_paths = get_images_from_folder(image_folder)
+
+        results = compare_image_with_pdf_pages_multiprocessing(image_paths, config)  # 使用多核心版本
 
         if results:
             similar_pages = []
@@ -416,12 +413,14 @@ def main ():
             print("Error during PDF processing. No similar pages found.")
         
         # 清理暫存檔案 (可選)
-        os.remove("remove_blank.pdf")
+        if config['clean_temp_pdf']:
+            os.remove(config["cleaned_pdf"])
 
-    output_excel = "extracted_data_factory.xlsx"  # 輸出的 Excel 文件名稱
+
     print(str_line('4.擷取文件內工廠編號'))
-    process_folder_multiprocessing('split_pdf',output_excel)
-    show_manual_step(tk.Tk(), output_excel)
+    process_folder_multiprocessing(config)
+    
+    show_manual_step(tk.Tk(), config)
 
 # 範例
 if __name__ == '__main__':
