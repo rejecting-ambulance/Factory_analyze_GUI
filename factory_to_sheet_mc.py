@@ -1,5 +1,6 @@
 from pdf2image import convert_from_path
 import fitz
+from openpyxl import load_workbook
 import pandas as pd
 import pytesseract
 import json
@@ -114,6 +115,17 @@ def process_folder_multiprocessing(config):
     df.to_excel(output_excel, index=False)
     print(f"\n✅ 提取結果已保存至：{output_excel}")
 
+    # 寫入提示訊息到 F2 並儲存關閉
+    try:
+        workbook = load_workbook(output_excel)
+        sheet = workbook.active
+        sheet['F2'] = "請留一個工廠編號，完成後存檔關閉"
+        workbook.save(output_excel)
+        workbook.close()
+        #print("✅ 已在 F2 寫入提示訊息")
+    except Exception as e:
+        print(f"⚠️ 無法寫入提示訊息：{e}")
+
     
     # 單核處理，除錯用
     # 定義函數：處理資料夾內的所有 PDF 並輸出到 Excel
@@ -153,5 +165,4 @@ if __name__ == "__main__":
     folder_path = config["process_folder"]
     output_excel = config["output_excel"]
 
-    #process_folder_multiprocessing(folder_path, output_excel, config)
     process_folder_multiprocessing(config)

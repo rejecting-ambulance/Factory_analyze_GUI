@@ -9,8 +9,8 @@
 
     "辨識設定":"--------------------------------------",
     "辨識說明1":"blank_page_threshold越高，接近純白才移除，範圍0~1",
-    "辨識說明2":"sift_threshold，接近純白才移除",
-    "辨識說明3":"blank_page_threshold越高，接近純白才移除",
+    "辨識說明2":"sift_threshold",
+    "辨識說明3":"clean_temp_pdf，要保留移除空白的連續PDF嗎，True/False",
     "blank_page_threshold": 0.95,
     "sift_threshold": 10,
     "max_processes": 3,

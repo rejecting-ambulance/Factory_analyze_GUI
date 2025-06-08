@@ -33,10 +33,10 @@ def load_config(config_path="config.json", default_config=None):
     if not os.path.exists(config_path):
         print(f"[錯誤] 找不到設定檔：{config_path}")
         if default_config:
-            print("[提示] 使用預設設定。")
+            print("[提示] 使用預設設定。\n")
             config = default_config
         else:
-            print("[中止] 無法繼續執行，請確認設定檔存在。")
+            print("[中止] 無法繼續執行，請確認設定檔存在。\n")
             sys.exit(1)
     else:
         try:
@@ -45,10 +45,10 @@ def load_config(config_path="config.json", default_config=None):
         except json.JSONDecodeError as e:
             print(f"[錯誤] 設定檔格式錯誤：{e}")
             if default_config:
-                print("[提示] 使用預設設定。")
+                print("[提示] 使用預設設定。\n")
                 config = default_config
             else:
-                print("[中止] 請修正 config.json 後再執行。")
+                print("[中止] 請修正 config.json 後再執行。\n")
                 sys.exit(1)
 
     # 處理 tesseract 路徑
@@ -292,18 +292,18 @@ def check_and_handle_split_folder(config):
                 shutil.rmtree(item_path)
             else:
                 os.remove(item_path)
-        print(f"✅ 已清空資料夾 '{folder_path}'。")
+        print(f"✅ 已清空資料夾 '{folder_path}'。\n")
         return 'y'
     else:
-        print("✅ 保留原資料夾內容。")
+        print("✅ 保留原資料夾內容。\n")
         return 'n'
 
 def print_intro():
     print("""
-    ================ 工廠登記公文自動化處理系統 ================
-    - 開啟 - 找印章 - 分割 - 找號碼 - 擷取 - 查詢 - 下班 - 
-    ===========================================================
-    """)
+================ 工廠登記公文自動化處理系統 ================
+- 開啟 - 找印章 - 分割 - 找號碼 - 擷取 - 查詢 - 下班 - 
+===========================================================
+""")
 
 
 def show_manual_step(root, config):
@@ -312,6 +312,7 @@ def show_manual_step(root, config):
         root.destroy()  # 關閉目前提示視窗
         print(str_line('5.查詢工廠編號'))
         process_excel_data(output_excel, 4)
+        os.startfile(output_excel)
         show_finish_window()
 
     def on_no():
@@ -329,7 +330,7 @@ def show_manual_step(root, config):
     btn_yes = tk.Button(button_frame, text="已完成 (y)", command=on_yes, width=15)
     btn_yes.grid(row=0, column=0, padx=10)
 
-    btn_no = tk.Button(button_frame, text="尚未完成 (n)", command=on_no, width=15)
+    btn_no = tk.Button(button_frame, text="不查詢 (n)", command=on_no, width=15)
     btn_no.grid(row=0, column=1, padx=10)
 
     root.mainloop()
@@ -337,7 +338,7 @@ def show_manual_step(root, config):
 def show_finish_window():
     finish_root = tk.Tk()
     finish_root.title("完成")
-    label = tk.Label(finish_root, text=str_line("有了耳朵，歡樂多更多！完成囉"), font=('Arial', 12))
+    label = tk.Label(finish_root, text=str_line("有了耳朵，歡樂多更多！再會"), font=('Arial', 12))
     label.pack(padx=20, pady=20)
 
     btn_close = tk.Button(finish_root, text="結束程式", command=finish_root.destroy, width=20)
@@ -353,19 +354,22 @@ def main ():
 
     default_config = {
         "blank_page_threshold" : 0.95,
-        "sift_threshold" : 20,
-        "tesseract_path": "",
+        "sift_threshold" : 10,
+        
+        "tesseract_path": "C:/Program Files/Tesseract-OCR",
         "clean_pdf": "remove_blank.pdf",
+
+        "output_excel": "factory_extraction.xlsx",
         "process_folder": "split_pdf",
         "image_folder": "footer_images",
-        "output_excel": "factory_extraction.xlsx",
+
         "max_processes": multiprocessing.cpu_count() - 1,
         "clean_temp_pdf": "True"
     }
 
     config = load_config(default_config=default_config)
 
-    if_split = check_and_handle_split_folder(folder_path=config['process_folder'])
+    if_split = check_and_handle_split_folder(config)
 
     if if_split == 'y':
         pdf_path = select_pdf()
@@ -419,6 +423,8 @@ def main ():
 
     print(str_line('4.擷取文件內工廠編號'))
     process_folder_multiprocessing(config)
+
+    os.startfile(config['output_excel'])
     
     show_manual_step(tk.Tk(), config)
 

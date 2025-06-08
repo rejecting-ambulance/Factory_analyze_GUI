@@ -6,8 +6,39 @@ from selenium.webdriver.support import expected_conditions as EC #等待載入
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import time     #輔助
+import json
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.exceptions import InvalidFileException
+
+
+def safe_load_workbook(file_path, retries=10, wait_seconds=1):
+    """安全讀取 Excel，如果檔案被鎖住則重試。"""
+    for attempt in range(retries):
+        try:
+            return load_workbook(file_path)
+        except PermissionError:
+            print(f"檔案正在使用中，嘗試重新載入（第 {attempt+1} 次）...")
+            time.sleep(wait_seconds)
+        except InvalidFileException:
+            raise Exception("檔案格式錯誤，請確認是否為合法的 Excel 檔。")
+    raise Exception("無法開啟 Excel 檔，請確認是否被其他程式鎖定。")
+
+def safe_save_workbook(workbook, file_path, retries=10, wait_seconds=3):
+    """安全儲存 Excel，如果檔案被鎖住則重試。"""
+    for attempt in range(retries):
+        try:
+            workbook.save(file_path)
+            return
+        except PermissionError:
+            print(f"無法儲存 Excel，檔案可能正被開啟中（第 {attempt+1} 次重試）...")
+            time.sleep(wait_seconds)
+    raise Exception("儲存失敗，請關閉 Excel 後再試。")
+
+def load_config(config_path="config.json"):
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 
 def setup_chrome_driver():
     options = Options()
@@ -15,6 +46,8 @@ def setup_chrome_driver():
     options.add_argument('--disable-gpu')  # 禁用 GPU
     options.add_argument('--disable-software-rasterizer')
     options.add_argument('--no-sandbox')
+    options.add_argument('--log-level=3')  # 僅顯示致命錯誤，關掉 Info/Warning
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])  # 關掉 DevTools 日誌
     
     driver = webdriver.Chrome(service=Service(), options=options)
     return driver
@@ -33,7 +66,7 @@ def handle_alert(driver):
         pass
     return 0
 
-def process_excel_data(file_path, search_col = 1):
+def process_excel_data(file_path, search_col=1):
     """從 Excel 讀取資料，進行網頁查詢，並將結果寫回 Excel。"""
     driver = setup_chrome_driver()
     driver.get("https://serv.gcis.nat.gov.tw/Fidbweb/index.jsp")
@@ -46,27 +79,34 @@ def process_excel_data(file_path, search_col = 1):
         wait.until(EC.visibility_of_element_located((By.NAME, 'regiID')))
     except Exception:
         raise TimeoutError('連線逾時，請關閉後重新操作')
-    
-    
-    workbook = load_workbook(file_path)
+
+    workbook = safe_load_workbook(file_path)
     worksheet = workbook.active
+
+    # === 新增：在 E1~I1 寫入標題 ===
+    result_headers = ["工廠位置", "工廠名稱", "工廠地址", "工廠編號", "營業狀況"]
+    for index, header in enumerate(result_headers):
+        col = get_column_letter(search_col + index + 1)  # search_col 為 D，+1 為 E 開始
+        worksheet[f'{col}1'] = header
+
     row_count = 0
 
     for row_index in range(2, 10002):  # 從第二行開始，最多處理 10000 行
         row_count = row_index
         main_search_value = str(worksheet[f'{get_column_letter(search_col)}{row_index}'].value)
-        search_results = []
 
         if main_search_value == 'None':
             break
 
-        print(f'第{row_count-1}筆-{main_search_value}')
+        print(f'Submiting {row_count-1} : {main_search_value}')
 
         search_input = driver.find_element(By.NAME, 'regiID')
         search_input.clear()
         search_input.send_keys(main_search_value)
         search_input.send_keys(Keys.RETURN)
-        if (handle_alert(driver)):
+
+        search_results = []
+        if handle_alert(driver):
             search_results.append('資料無法查詢')
         else:
             driver.switch_to.parent_frame()
@@ -75,13 +115,15 @@ def process_excel_data(file_path, search_col = 1):
             search_results = perform_web_search(driver, wait)
 
         for index, res in enumerate(search_results):
-            worksheet[f'{get_column_letter(search_col + index + 1)}{row_index}'] = res   
-        
-        workbook.save(file_path)
-    workbook.close()
+            worksheet[f'{get_column_letter(search_col + index + 1)}{row_index}'] = res
 
-    driver.quit() #關閉瀏覽器
-    print('查詢結束，請至Excel確認結果')
+        #workbook.save(file_path)
+        safe_save_workbook(workbook, file_path)
+
+
+    workbook.close()
+    driver.quit()  # 關閉瀏覽器
+    print('查詢結束，請至 Excel 確認結果')
     return row_count
 
 def perform_web_search(driver,wait):
@@ -130,7 +172,7 @@ def perform_web_search(driver,wait):
 
 
 if __name__ == '__main__':
-    file_path = 'extracted_data_factory.xlsx'
-
-    processed_rows = process_excel_data(file_path, 4)
+    config = load_config()
+    
+    processed_rows = process_excel_data(config, 4)
     input(f'查詢了 {processed_rows - 2} 筆，任務完成')
