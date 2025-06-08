@@ -4,8 +4,19 @@ split_pdf/
 發布版/
 poppler-24.08.0/
 
-extracted_data_factory.xlsx
-spssp_mc_combine.exe
+build/
+dist/
+
+
 README.pptx
 
+
+*.spec
 *.7z
+*.xlsx
+*.exe
+*.url
+
+
+*.exe
+build/spssp_mc_combine/

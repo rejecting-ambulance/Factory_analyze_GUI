@@ -8,14 +8,20 @@
     "poppler_source": "https://github.com/oschwartz10612/poppler-windows/releases/",
 
     "辨識設定":"--------------------------------------",
-    "辨識說明1":"blank_page_threshold越高，接近純白才移除，範圍0~1",
-    "辨識說明2":"sift_threshold",
-    "辨識說明3":"clean_temp_pdf，要保留移除空白的連續PDF嗎，True/False",
     "blank_page_threshold": 0.95,
     "sift_threshold": 10,
     "max_processes": 3,
     "clean_temp_pdf": "True",
+
+    "document_number_pattern": "(?<!\\d)(\\d{10})(?!\\d)",
+    "factory_number_pattern": "(?<!\\d)(\\d{8})(?!\\d)|(?<!\\w)(S\\d{7})(?!\\d)",
     
+    "dpi": 300,
+    "tesseract_lang": "chi_tra",
+    "tesseract_config": "--oem 1 --psm 6",
+
+
+    "輸出路徑設定":"--------------------------------------",
     "image_folder": "footer_images",
     "process_folder": "split_pdf",
 
@@ -23,16 +29,6 @@
     "output_excel": "factory_extraction.xlsx",
     
 
-    "exclude_path": "exclude_numbers.txt",
+    "exclude_path": "exclude_numbers.txt"
     
-    "document_number_pattern": "(?<!\\d)(\\d{10})(?!\\d)",
-    "factory_number_pattern": "(?<!\\d)(\\d{8})(?!\\d)|(?<!\\w)(S\\d{7})(?!\\d)",
-    
-    "dpi": 300,
-    "tesseract_lang": "chi_tra",
-    "tesseract_config": "--oem 1 --psm 6"
-
-      
-
-
 }
