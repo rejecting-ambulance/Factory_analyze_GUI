@@ -55,6 +55,11 @@
 
 2.excleude_numbers.txt可以加入要排除的數字，因為有時候會把電話或是一些不需要的資訊讀進來。
 
+### 更新內容
+#### 114.7.25
+* 空白比對新增標準差判定，現以空白率、標準查判斷移除頁面。
+* 圖片比對簡單化，現在只會回傳tuple(page_num, is_similar)，避免回傳空值num。
+
 ### 
 * Tools: ChatGPT 
 * Contact: zhandezhong861131@gmail.com

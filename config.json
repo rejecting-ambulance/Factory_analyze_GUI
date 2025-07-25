@@ -8,8 +8,9 @@
     "poppler_source": "https://github.com/oschwartz10612/poppler-windows/releases/",
 
     "辨識設定":"--------------------------------------",
-    "blank_page_threshold": 0.95,
-    "sift_threshold": 10,
+    "blank_page_threshold": 0.85,
+    "std_threshold": 8,
+    "sift_threshold": 15,
     "max_processes": 3,
     "clean_temp_pdf": "True",
 

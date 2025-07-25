@@ -64,7 +64,7 @@ def load_config(config_path="config.json", default_config=None):
         print("[設定] 未指定 Tesseract 路徑，將使用預設 PATH。")
 
     return config
-
+'''
 def is_blank_page(page, threshold=0.95):
     """檢查單頁是否為空白"""
     text = page.get_text("text").strip()
@@ -77,7 +77,25 @@ def is_blank_page(page, threshold=0.95):
     total_pixels = pix.width * pix.height * pix.n  # 總像素數
 
     return (white_pixels / total_pixels) >= threshold  # 若白色比例超過閾值，則視為空白
+'''
+def is_blank_page_v2(page, white_threshold=0.85, std_threshold=5):
+    """綜合判斷是否為空白頁：文字、白色比例、像素變異"""
+    text = page.get_text("text").strip()
+    if text:
+        return False, 0.0, 999  # 有文字直接視為有內容
 
+    pix = page.get_pixmap()
+    img = np.frombuffer(pix.samples, dtype=np.uint8)
+    white_pixels = np.sum(img == 255)
+    total_pixels = pix.width * pix.height * pix.n
+    ratio = white_pixels / total_pixels
+
+    std_dev = np.std(img)
+
+    # 綜合判斷
+    is_blank = (ratio >= white_threshold) and (std_dev <= std_threshold)
+    #print(f"[DEBUG] Page {page.number + 1}: white ratio={ratio:.3f}, std={std_dev:.2f}, text={bool(text)}")
+    return is_blank
 
 def remove_blank_pages(pdf_path, config):
     """移除空白頁"""
@@ -87,9 +105,15 @@ def remove_blank_pages(pdf_path, config):
 
     removed_pages = []  # 記錄被移除的頁碼
     total_pages = len(doc)  # 原始總頁數
-
+    '''
     for page in doc:  
         if is_blank_page(page, threshold = config["blank_page_threshold"]):  
+            removed_pages.append(page.number + 1)  # PyMuPDF 頁碼從 0 開始，+1 轉為人類可讀的頁碼
+        else:
+            new_doc.insert_pdf(doc, from_page=page.number, to_page=page.number)
+    '''
+    for page in doc:  
+        if is_blank_page_v2(page, white_threshold = config["blank_page_threshold"],std_threshold=config["std_threshold"]):  
             removed_pages.append(page.number + 1)  # PyMuPDF 頁碼從 0 開始，+1 轉為人類可讀的頁碼
         else:
             new_doc.insert_pdf(doc, from_page=page.number, to_page=page.number)
@@ -147,52 +171,59 @@ def compare_images_sift(img1, img2, threshold=10):
 
 
 def compare_image_with_pdf_page(image_paths, pdf_path, page_num, threshold=10):
-    """比較多張圖片與單一 PDF 頁面是否相似。"""
+    """比較多張圖片與單一 PDF 頁面是否相似（回傳 bool）"""
     imgs = []
     for image_path in image_paths:
         img = cv2.imread(image_path)
         if img is None:
             print(f"Error: Could not read image at {image_path}")
-            return None
+            return page_num, False
         imgs.append(img)
 
     doc = fitz.open(pdf_path)
     page = doc[page_num]
     pix = page.get_pixmap()
     img2 = cv2.imdecode(np.frombuffer(pix.tobytes(), np.uint8), cv2.IMREAD_COLOR)
+    doc.close()
 
-    similar_image_indices = []
-    for i, img1 in enumerate(imgs):
+    for img1 in imgs:
         if compare_images_sift(img1, img2, threshold):
-            similar_image_indices.append(i)
+            return page_num, True
 
-    if similar_image_indices:
-        return page_num, similar_image_indices  # 返回頁碼和相似圖片索引
-    return None
+    return page_num, False
+
+
+
 
 def compare_image_with_pdf_pages_multiprocessing(image_paths, config):
-    """使用多核心比較多張圖片與 PDF 每一頁是否相似。"""
+    """使用多核心比較多張圖片與 PDF 每一頁是否相似（回傳符合頁碼）"""
     print(str_line('2.比對檔案分割點'))
-    max_processes = config["max_processes"]
+
+    max_processes = config.get("max_processes")
     if max_processes is None:
         max_processes = max(1, multiprocessing.cpu_count() - 1)
 
     threshold = config["sift_threshold"]
-
     pdf_path = config["cleaned_pdf"]
-    results = {}
-    doc = fitz.open(pdf_path)
+
+    similar_pages = []  # 存放有相似圖片的頁碼
+
+    with fitz.open(pdf_path) as doc:
+        total_pages = doc.page_count
 
     with ProcessPoolExecutor(max_workers=max_processes) as executor:
-        tasks = [executor.submit(compare_image_with_pdf_page, image_paths, pdf_path, page_num, threshold) for page_num in range(doc.page_count)]
-        for future in tasks:
-            result = future.result()
-            if result:
-                page_num, image_indices = result
-                results[page_num] = image_indices
+        tasks = [
+            executor.submit(compare_image_with_pdf_page, image_paths, pdf_path, page_num, threshold)
+            for page_num in range(total_pages)
+        ]
 
-    doc.close()
-    return results
+        for future in tasks:
+            page_num, is_similar = future.result()
+            if is_similar:
+                similar_pages.append(page_num)
+
+    return similar_pages
+
 
 def split_pdf(pdf_path, split_points, output_dir="split_pdf"):
     """
@@ -367,8 +398,9 @@ def main ():
         "clean_temp_pdf": "True"
     }
 
-    config = load_config(default_config=default_config)
-
+    #config = load_config(default_config=default_config)
+    config = load_config()
+    
     if_split = check_and_handle_split_folder(config)
 
     if if_split == 'y':
@@ -381,40 +413,34 @@ def main ():
         image_folder = config['image_folder']  # 假設你的圖片都放在 templates 資料夾內
         image_paths = get_images_from_folder(image_folder)
 
-        results = compare_image_with_pdf_pages_multiprocessing(image_paths, config)  # 使用多核心版本
+        similar_pages = compare_image_with_pdf_pages_multiprocessing(image_paths, config)  # 已回傳 List[int]
 
-        if results:
-            similar_pages = []
-            for page_num, image_indices in results.items():
-                similar_pages.append(page_num)
+        if similar_pages:
+            similar_pages.sort()  # 保險起見，確保頁碼順序
+            split_points = []
 
-            if similar_pages:
-                split_points = []
+            for i in range(len(similar_pages) - 1):
+                if similar_pages[i + 1] - similar_pages[i] >= 1:
+                    split_points.append(similar_pages[i])
 
-                for i in range(len(similar_pages) - 1):
-                    if similar_pages[i + 1] - similar_pages[i] >= 1:
-                        split_points.append(similar_pages[i])
+            if similar_pages[-1] not in split_points:
+                split_points.append(similar_pages[-1])
 
-                if similar_pages[-1] not in split_points:
-                    split_points.append(similar_pages[-1])
+            split_file_count = len(split_points) if split_points else 1
 
-                split_file_count = len(split_points) if split_points else 1
+            print("分割結果：")
+            print("-" * 50)
+            print(f"{'頁面':<10}{'已分割檔案'}")
+            print("-" * 50)
 
-                print("分割結果：")
-                print("-" * 50)
-                print(f"{'頁面':<10}{'相似圖片數':<15}{'已分割檔案'}")
-                print("-" * 50)
+            for i, page_num in enumerate(similar_pages):
+                print(f"Page {page_num + 1:<6}→     {i + 1}/{split_file_count}")
 
-                for i, page_num in enumerate(similar_pages):
-                    image_indices = results[page_num]
-                    print(f"Page {page_num + 1:<6}→ {len(image_indices):<13}張     {i + 1}/{split_file_count}")
-
-                split_pdf(temp_path, split_points)
-                print("PDF 分割完成！")
-            else:
-                print("PDF 中沒有與圖片相似的頁面。")
+            split_pdf(temp_path, split_points)
+            print("PDF 分割完成！")
         else:
-            print("Error during PDF processing. No similar pages found.")
+            print("PDF 中沒有與圖片相似的頁面。")
+
         
         # 清理暫存檔案 (可選)
         if config['clean_temp_pdf']:

@@ -108,12 +108,21 @@ def process_folder_multiprocessing(config):
             extracted_data.append(future.result())
             print(f"Processed: {extracted_data[-1]['檔名']}")
 
+    # 將結果保存為 Excel 文件
     df = pd.DataFrame(extracted_data)
+    
+    # 擷取檔名中的數字編號
     df["編號"] = df["檔名"].apply(lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else None)
+    
+    # ✅ 根據「編號」欄位排序（忽略 None）
+    df = df.sort_values(by="編號", na_position='last')
+
+    # 調整欄位順序，把 "編號" 放最前面
     columns_order = ["編號", "檔名"] + [col for col in df.columns if col not in ["檔名", "編號"]]
     df = df[columns_order]
+
     df.to_excel(output_excel, index=False)
-    print(f"\n✅ 提取結果已保存至：{output_excel}")
+    print(f"\n提取結果已保存至：{output_excel}")
 
     # 寫入提示訊息到 F2 並儲存關閉
     try:
@@ -127,35 +136,39 @@ def process_folder_multiprocessing(config):
         print(f"⚠️ 無法寫入提示訊息：{e}")
 
     
-    # 單核處理，除錯用
-    # 定義函數：處理資料夾內的所有 PDF 並輸出到 Excel
-    def process_folder(folder_path, output_excel = 'extracted_data_factory.xlsx'):      
-        # 搜索資料夾內的所有 PDF 文件
-        pdf_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".pdf")]
+# 單核處理，除錯用
+# 定義函數：處理資料夾內的所有 PDF 並輸出到 Excel
+def process_folder(folder_path, output_excel = 'extracted_data_factory.xlsx'):      
+    # 搜索資料夾內的所有 PDF 文件
+    pdf_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".pdf")]
 
-        extracted_data = []  # 存放所有提取結果
+    extracted_data = []  # 存放所有提取結果
 
-        for index, pdf_file in enumerate(pdf_files, start=1):
-            # 提取單個 PDF 的數據
-            data = extract_pdf_data(pdf_file)
-            # 加入檔名到提取結果中
-            data["檔名"] = os.path.basename(pdf_file)
-            extracted_data.append(data)
+    for index, pdf_file in enumerate(pdf_files, start=1):
+        # 提取單個 PDF 的數據
+        data = extract_pdf_data(pdf_file)
+        # 加入檔名到提取結果中
+        data["檔名"] = os.path.basename(pdf_file)
+        extracted_data.append(data)
 
-            # 顯示進度訊息
-            print(f"[{index}/{len(pdf_files)}] 已處理：{os.path.basename(pdf_file)}")
+        # 顯示進度訊息
+        print(f"[{index}/{len(pdf_files)}] 已處理：{os.path.basename(pdf_file)}")
 
-        # 將結果保存為 Excel 文件
-        df = pd.DataFrame(extracted_data)
-        
-        # 擷取檔名中的數字
-        df["編號"] = df["檔名"].apply(lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else None)
-        # 調整欄位順序，把 "數字編號" 放最前面
-        columns_order = ["編號", "檔名"] + [col for col in df.columns if col not in ["檔名", "編號"]]
-        df = df[columns_order]
+    # 將結果保存為 Excel 文件
+    df = pd.DataFrame(extracted_data)
+    
+    # 擷取檔名中的數字編號
+    df["編號"] = df["檔名"].apply(lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else None)
+    
+    # ✅ 根據「編號」欄位排序（忽略 None）
+    df = df.sort_values(by="編號", na_position='last')
 
-        df.to_excel(output_excel, index=False)
-        print(f"\n提取結果已保存至：{output_excel}")
+    # 調整欄位順序，把 "編號" 放最前面
+    columns_order = ["編號", "檔名"] + [col for col in df.columns if col not in ["檔名", "編號"]]
+    df = df[columns_order]
+
+    df.to_excel(output_excel, index=False)
+    print(f"\n提取結果已保存至：{output_excel}")
     
 
 
